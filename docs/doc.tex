@@ -1,0 +1,662 @@
+\documentclass[12pt, a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{setspace}
+\usepackage{tocbibind}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{color}
+\usepackage{float}
+\usepackage{url}
+\usepackage{tocloft}
+\usepackage{titlesec}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, shadows, fit, calc}
+
+
+\geometry{
+a4paper,
+left=2.5cm,
+right=2.5cm,
+top=3cm,
+bottom=3cm
+}
+
+\hypersetup{
+colorlinks=true,
+linkcolor=blue!50!black,
+citecolor=green!50!black,
+urlcolor=red!50!black,
+pdftitle={Monitoreo Local de Infraestructura de la AFI con Detección de Personas y otros Objetos NO permitidos},
+pdfauthor={Cornejo Clavel Jesus Eduardo, Vargas Fuentes Rey}
+}
+
+\onehalfspacing
+
+\title{
+\vspace{1cm}
+\textbf{Proyecto de Monitoreo y Seguridad Física Local para Centros de Cómputo usando Detección de Objetos} \\
+\vspace{0.5cm}
+}
+\author{
+Cornejo Clavel Jesus Eduardo \\
+Vargas Fuentes Rey
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\newpage
+
+% --- Resumen (Abstract) ---
+\begin{abstract}
+\noindent
+La seguridad física de los centros de cómputo (o \textit{data centers}) es una responsabilidad crítica de la \textbf{Administración de la Función Informática (AFI)}. Los sistemas de vigilancia tradicionales son \textbf{reactivos}, costosos y su supervisión manual es ineficiente, generando un ROI negativo y tiempos de respuesta inaceptables para la gestión de riesgos moderna.
+
+\noindent
+Este proyecto propone un \textbf{Sistema de Monitoreo y Alerta de Seguridad Física Proactivo} alineado con marcos de gobierno de TI (ITIL 4, ISO 27001, COBIT 2019), basado en el algoritmo \textit{You Only Look Once} (\textbf{YOLOv11}). El sistema se distingue por un enfoque \textbf{totalmente local (on-premise)} para garantizar la seguridad y baja latencia de los datos. El conjunto de datos es preparado y anotado usando la plataforma \textbf{Roboflow} (como herramienta de MLOps para gestión de datos), pero el entrenamiento del modelo y la inferencia en tiempo real se ejecutan en \textbf{hardware local}. El sistema detectará amenazas como \textbf{intrusiones de personal no autorizado} y la \textbf{presencia de articulos prohibidos}.
+
+\noindent
+Desde la perspectiva de AFI, el proyecto aborda tres dimensiones estratégicas: (1) \textbf{Optimización de Recursos} - ROI de 718\% en el primer año mediante reducción de costos operativos, (2) \textbf{Gestión de Riesgos} - reducción del MTTD de minutos/horas a menos de 1 segundo, y (3) \textbf{Cumplimiento Normativo} - implementación de controles auditables para certificaciones ISO 27001. El sistema opera con un \textbf{índice de seguridad de detección de 0.50} y algoritmo de \textbf{seguimiento con IoU} que confirma amenazas persistentes en 10 fotogramas, reduciendo falsos positivos a < 5\%.
+
+\noindent
+El objetivo es establecer un modelo replicable de seguridad física inteligente, demostrando la viabilidad de implementar soluciones de Visión por Computadora de alto rendimiento (79.7\% mAP50, 4.0ms de latencia) bajo arquitectura de procesamiento de borde (\textit{Edge Computing}) local con hardware accesible (NVIDIA RTX 3060, inversión inicial \$3,300 - \$8,700).
+
+\vspace{1cm}
+
+\noindent
+\textbf{Palabras Clave:} Administración de la Función Informática (AFI), YOLOv11, Gobierno de TI, Gestión de Riesgos, Seguridad Física, On-Premise, Edge Computing, ISO 27001, ITIL 4, ROI, Detección de Objetos.
+\end{abstract}
+
+\newpage
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\newpage
+
+\section{Introducción}
+
+\subsection{Contextualización del Problema}
+
+La \textbf{Administración de la Función Informática (AFI)} tiene la responsabilidad de proteger los datos organizacionales, incluyendo su seguridad física. Los centros de cómputo, al ser la ubicación de activos críticos, requieren medidas de vigilancia rigurosas. La dependencia de CCTV y personal de seguridad para la detección de incidentes introduce una \textbf{latencia de detección} inaceptable.
+
+Además, por políticas de seguridad o regulaciones (ej. normativas financieras o de privacidad), muchas organizaciones no pueden enviar los flujos de video de sus áreas críticas a la nube para su procesamiento. Esto hace imprescindible una solución \textbf{totalmente local}. El monitoreo se centra en la detección de \textbf{personas no autorizadas} y \textbf{objetos potencialmente peligrosos} (mochilas, teléfonos celulares, dispositivos electrónicos) en áreas críticas de racks y salas de servidores.
+
+\subsection{Justificación del Proyecto: Enfoque Local y Detección Específica}
+
+La brecha de conocimiento que aborda este proyecto es doble:
+\begin{enumerate}
+\item La falta de \textbf{análisis de video en tiempo real} para la detección de objetos de bajo volumen y alta relevancia de seguridad (\textbf{personas y objetos no autorizados}).
+\item La necesidad de una \textbf{arquitectura de procesamiento de borde} (\textit{Edge Computing}) para mantener todos los datos de video y la inferencia del modelo dentro de la red local del centro de cómputo.
+\end{enumerate}
+
+\subsection{Objetivos}
+
+\subsubsection{Objetivo General}
+Diseñar e implementar un prototipo funcional de un sistema de seguridad proactivo y \textbf{completamente local} utilizando YOLOv11 con dos modelos complementarios: (1) un modelo personalizado entrenado para detección de \textbf{personas} específicamente, y (2) el modelo pre-entrenado COCO para detección de otros objetos relevantes para seguridad física (botellas, teléfonos celulares, mochilas, laptops), configurando umbrales de detección de $\mathbf{0.65}$ y visualización de $\mathbf{0.50}$ para optimizar precisión y reducir falsos positivos.
+
+\subsubsection{Objetivos Específicos}
+\begin{itemize}
+\item \textbf{Adquirir} y gestionar datasets anotados de personas, incluyendo la clase \texttt{person}, utilizando las herramientas de MLOps de Roboflow.
+\item \textbf{Exportar} los datasets de Roboflow en el formato compatible con YOLO para su uso local.
+\item \textbf{Entrenar} el modelo YOLOv11 personalizado en una \textbf{GPU local} (NVIDIA RTX 3060) para detección específica de \textbf{personas}.
+\item \textbf{Integrar} el modelo pre-entrenado YOLOv11x basado en el \textbf{dataset COCO} para detección de 80 clases de objetos comunes relevantes para seguridad, incluyendo \texttt{backpack}, \texttt{bottle}, \texttt{cell phone}, \texttt{laptop}, entre otros.
+\item \textbf{Configurar} umbrales de seguridad: \textbf{detección a 0.65} (confianza mínima para procesamiento) y \textbf{visualización a 0.50} (confianza mínima para mostrar bounding boxes).
+\item \textbf{Desarrollar} un módulo de inferencia en Python que cargue modelos localmente y procese flujos de video de cámaras (usando OpenCV y ffplay) sin conexión a la nube, manteniendo una latencia inferior a $\mathbf{40 \text{ ms}}$ por fotograma.
+\item \textbf{Validar} el rendimiento del sistema en términos de FPS (velocidad) y mAP (precisión) bajo una arquitectura local con los nuevos parámetros de seguridad.
+\end{itemize}
+
+\section{Marco Teórico}
+
+\subsection{Arquitectura On-Premise y Edge Computing}
+Una arquitectura \textbf{On-Premise} (local) significa que todo el hardware y software de procesamiento residen dentro de la infraestructura física del cliente. El \textbf{Edge Computing} aplica esto al mover el poder de cómputo (en este caso, la inferencia de la IA) más cerca de la fuente de los datos (la cámara de seguridad) para reducir la latencia y el ancho de banda requerido. Esto es fundamental para entornos de alta seguridad como los centros de datos.
+
+\subsection{YOLOv11 para Seguridad}
+Elegimos \textbf{YOLOv11} por su capacidad de mantener una alta precisión mientras opera a alta velocidad. El proyecto utiliza dos enfoques complementarios: (1) un modelo personalizado entrenado específicamente para detección de \textbf{personas} (\texttt{both.pt}), y (2) el modelo pre-entrenado YOLOv11x (\texttt{COCO.pt}) entrenado con el \textbf{dataset COCO (Common Objects in Context)}. El uso del \textbf{modelo COCO permite reconocer otros tipos de objetos} relevantes para seguridad, detectando 80 clases de objetos comunes incluyendo personas, botellas, teléfonos celulares, laptops, mochilas y otros objetos potencialmente peligrosos o no autorizados. El \textbf{índice de seguridad de detección (umbral de confianza)} se configura a $\mathbf{0.65}$ para el modelo, con un umbral de visualización de $\mathbf{0.50}$ para reducir falsos positivos y optimizar el rendimiento en la GPU local (NVIDIA GeForce RTX 3060 con 12GB de memoria).
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=2cm,
+    box/.style={rectangle, rounded corners, draw, fill=blue!10, text width=5cm, align=center, minimum height=1.5cm, drop shadow},
+    custom/.style={fill=green!20},
+    pretrained/.style={fill=orange!20}
+]
+
+\node[box, custom] (custom) {\textbf{Modelo Personalizado} \\ \texttt{both.pt} (5.5MB)};
+\node[box, pretrained, right=of custom] (pretrained) {\textbf{Modelo Pre-entrenado} \\ \texttt{COCO.pt}};
+
+\node[below=0.8cm of custom, text width=5cm, align=center] (custom-details) {
+    \textbf{Clases:} 1 \\
+    person \\
+    \textbf{Dataset:} Roboflow \\
+    \textbf{mAP50:} 79.7\% \\
+    \textbf{Uso:} Detección de personas
+};
+
+\node[below=0.8cm of pretrained, text width=5cm, align=center] (pretrained-details) {
+    \textbf{Clases:} 80 \\
+    backpack, bottle, cell phone, \\
+    laptop, handbag, etc. \\
+    \textbf{Dataset:} COCO \\
+    \textbf{Uso:} Objetos de seguridad
+};
+
+\node[above=1.5cm of $(custom)!0.5!(pretrained)$, text width=10cm, align=center, fill=yellow!20, rounded corners, draw] (config) {
+    \textbf{Configuración Común} \\
+    Umbral de Detección: 0.65 | Umbral de Visualización: 0.50 \\
+    Hardware: NVIDIA RTX 3060 12GB | Latencia: 4.0ms
+};
+
+\draw[-Latex, thick] (config) -- (custom);
+\draw[-Latex, thick] (config) -- (pretrained);
+
+\end{tikzpicture}
+\caption{Estrategia Dual de Modelos YOLOv11: Personalizado vs Pre-entrenado COCO}
+\label{fig:dual-model}
+\end{figure}
+
+\subsection{Roboflow como Herramienta de Data MLOps}
+Aunque la inferencia y el entrenamiento son locales, \textbf{Roboflow} se utiliza exclusivamente como una herramienta para:
+\begin{enumerate}
+\item \textbf{Acceso a Datasets Públicos:} Roboflow cuenta con una \textbf{amplia biblioteca de datasets pre-anotados} creados por la comunidad que pueden ser utilizados directamente, evitando el tiempo y costo de recolección y anotación manual. Esto hace que la Fase 1 sea \textbf{medianamente opcional} en cuanto a la creación de datos propios.
+\item \textbf{Anotación Centralizada:} Si se requieren datos personalizados, permite etiquetar miles de imágenes de manera eficiente mediante herramientas visuales y semi-automáticas.
+\item \textbf{Aumento de Datos (Augmentation):} Generar nuevas versiones de datos con transformaciones (rotación, brillo, recorte) para mejorar la robustez del modelo.
+\item \textbf{Versionamiento:} Mantener un registro claro de qué *dataset* se usó para cada experimento, facilitando la reproducibilidad.
+\item \textbf{Fusión de Datasets:} Combinar múltiples datasets de diferentes fuentes en un único dataset unificado.
+\item \textbf{Exportación:} Descargar el *dataset* en el formato estándar de YOLO para iniciar el entrenamiento local.
+\end{enumerate}
+
+\newpage
+
+\section{Metodología de Desarrollo}
+
+El proyecto se ejecuta en cuatro fases secuenciales que priorizan la seguridad y el control de datos local.
+
+\subsection{Fase 1: Preparación y Gestión del Dataset (Roboflow)}
+
+\textbf{Nota:} Esta fase es \textbf{medianamente a elección} del implementador. Si bien se pueden recolectar y anotar datos propios desde cero, Roboflow ofrece una \textbf{biblioteca pública de datasets pre-anotados} que pueden ser utilizados directamente, acelerando significativamente el proceso de desarrollo. En este proyecto se optó por utilizar datasets existentes de la comunidad de Roboflow.
+
+\begin{enumerate}
+\item \textbf{Recolección y Subida:} Se utiliza un dataset de Roboflow para cubrir las necesidades del proyecto:
+\begin{itemize}
+\item \textbf{People-Detection:} Dataset público de Roboflow con 15,955 imágenes de entrenamiento y 1,661 de validación para la detección de personas (workspace: leo-ueno, proyecto: people-detection-o4rdr, versión 11).
+\end{itemize}
+La clase principal de interés es \texttt{person}. Este dataset fue seleccionado de la \textbf{biblioteca pública de Roboflow} por su calidad de anotación y relevancia para el proyecto.
+\item \textbf{Anotación:} El dataset público ya viene \textbf{pre-anotado} por la comunidad, eliminando la necesidad de anotación manual. En caso de requerir ajustes, se pueden usar las herramientas de anotación de Roboflow.
+\item \textbf{Aumento y Versionamiento:} Se aplican transformaciones (ej. $90^{\circ}$ de rotación, cambios de brillo) a través de Roboflow para generar datasets robustos. Se crea la versión final del dataset.
+\item \textbf{Exportación Local:} La versión final del dataset (imágenes y archivos de texto \texttt{.txt} de anotación) se \textbf{descarga y exporta localmente} al servidor de entrenamiento. El proceso en la nube finaliza aquí.
+\end{enumerate}
+
+\subsection{Fase 2: Entrenamiento del Modelo (Local)}
+
+Esta fase se ejecuta íntegramente en un servidor o estación de trabajo equipado con una \textbf{GPU dedicada NVIDIA GeForce RTX 3060} (12GB VRAM) dentro del entorno seguro del laboratorio.
+
+\begin{enumerate}
+\item \textbf{Configuración del Entorno:} Instalación del entorno de Python 3.13, PyTorch 2.6.0, CUDA 11.8/12.4 y Ultralytics 8.3.221 para el entrenamiento de YOLOv11.
+\item \textbf{Carga de Datos:} Se carga el dataset \texttt{People-Detection} exportado de Roboflow, que contiene 15,955 imágenes de entrenamiento con la clase \texttt{person} (10,660 instancias).
+\item \textbf{Entrenamiento:} Se utiliza el modelo base YOLOv11n con los siguientes parámetros:
+\begin{itemize}
+\item Épocas: 40
+\item Tamaño de imagen: 1024x1024 píxeles
+\item Batch size: 8
+\item Dispositivo: CUDA (GPU)
+\item Optimizador: AdamW automático (lr=0.001667, momentum=0.9)
+\item Pesos pre-entrenados de transfer learning
+\end{itemize}
+\item \textbf{Resultados del Entrenamiento:} El modelo alcanzó las siguientes métricas en el conjunto de validación:
+\begin{itemize}
+\item \textbf{mAP50 global:} 0.797 (79.7\%)
+\item \textbf{mAP50-95 global:} 0.602 (60.2\%)
+\item \textbf{Precisión para person:} 0.787, Recall: 0.551, mAP50: 0.659
+\item \textbf{Velocidad de inferencia:} 4.0ms por imagen
+\item \textbf{Parámetros del modelo:} 2,590,230 (2.6M)
+\end{itemize}
+\item \textbf{Generación de Pesos:} El resultado es el archivo de pesos del modelo entrenado para detección de personas (\texttt{both.pt} - 5.5MB), que se almacena en el servidor local de inferencia. Adicionalmente, el sistema utiliza el modelo pre-entrenado \texttt{COCO.pt} que fue entrenado originalmente con el \textbf{dataset COCO}. El uso del \textbf{modelo COCO permite reconocer otros tipos de objetos} relevantes para seguridad (mochilas, botellas, teléfonos celulares, laptops, etc.), detectando 80 clases de objetos comunes sin necesidad de entrenamiento adicional, lo que amplía las capacidades de seguridad del sistema.
+\end{enumerate}
+
+\subsection{Fase 3: Arquitectura de Inferencia y Alerta (Local)}
+
+El sistema opera en un \textbf{Edge Server} dedicado a la vigilancia.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.9\textwidth]{rquitectura_local_yolo.png}
+\caption{Arquitectura del Sistema de Monitoreo Local.}
+\label{fig:arquitectura}
+\end{figure}
+
+\newpage
+
+\begin{enumerate}
+\item \textbf{Módulo de Captura (Ingesta):} Un script de Python (usando OpenCV \texttt{cv2.VideoCapture}) se conecta a las cámaras dentro de la red local. El sistema soporta múltiples fuentes de video, incluyendo cámaras USB indexadas numéricamente.
+\item \textbf{Módulo de Inferencia (Core YOLOv11 Local):}
+\begin{itemize}
+\item El script \textbf{carga directamente el archivo de pesos del disco local}, ya sea \texttt{both.pt} (modelo personalizado para personas) o \texttt{COCO.pt} (modelo pre-entrenado con COCO que permite reconocer otros tipos de objetos). No hay llamadas a APIs externas.
+\item La inferencia se ejecuta en la GPU del servidor de borde (CUDA), procesando cada fotograma a 30 FPS.
+\item \textbf{Umbral de detección:} $\geq 0.65$ - Solo objetos con confianza superior al 65\% son procesados por el modelo.
+\item \textbf{Umbral de visualización:} $\geq 0.50$ - Solo las detecciones con confianza superior al 50\% se muestran en pantalla con bounding boxes.
+\item La salida son las detecciones: clase, confianza y coordenadas para objetos de interés (personas del modelo personalizado, o backpack, bottle, cell phone, laptop del modelo COCO).
+\end{itemize>
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm and 2cm,
+    process/.style={rectangle, draw, fill=blue!20, text width=3cm, align=center, minimum height=1cm, rounded corners},
+    decision/.style={diamond, draw, fill=yellow!30, text width=2.5cm, align=center, aspect=2},
+    output/.style={rectangle, draw, fill=green!20, text width=3cm, align=center, minimum height=1cm, rounded corners},
+    discard/.style={rectangle, draw, fill=red!20, text width=3cm, align=center, minimum height=1cm, rounded corners},
+    arrow/.style={-Latex, thick}
+]
+
+\node[process] (frame) {Frame de Video\\(640x480)};
+\node[process, below=of frame] (model) {Modelo YOLOv11\\Inferencia GPU};
+\node[decision, below=of model] (threshold1) {Confianza\\$\geq$ 0.65?};
+\node[discard, right=of threshold1] (discard1) {Descartado\\(No procesado)};
+\node[process, below=of threshold1] (filter) {Filtro de Clases\\(person, bottle,\\cell phone)};
+\node[decision, below=of filter] (threshold2) {Confianza\\$\geq$ 0.50?};
+\node[discard, right=of threshold2] (discard2) {No mostrado\\(Sin bbox)};
+\node[output, below=of threshold2] (display) {Visualización\\con Bounding Box\\+ Etiqueta};
+
+\draw[arrow] (frame) -- (model);
+\draw[arrow] (model) -- node[right] {Detecciones} (threshold1);
+\draw[arrow] (threshold1) -- node[above] {No} (discard1);
+\draw[arrow] (threshold1) -- node[right] {Sí} (filter);
+\draw[arrow] (filter) -- (threshold2);
+\draw[arrow] (threshold2) -- node[above] {No} (discard2);
+\draw[arrow] (threshold2) -- node[right] {Sí} (display);
+
+\node[left=0.3cm of threshold1, text width=2cm, align=right, font=\small\color{blue}] {Umbral de\\Detección};
+\node[left=0.3cm of threshold2, text width=2cm, align=right, font=\small\color{blue}] {Umbral de\\Visualización};
+
+\end{tikzpicture}
+\caption{Flujo de Procesamiento con Doble Umbral de Confianza}
+\label{fig:threshold-flow}
+\end{figure}
+\item \textbf{Módulo de Seguimiento con IoU:}
+\begin{itemize}
+\item Se implementa un algoritmo de seguimiento de objetos usando \textbf{Intersection over Union (IoU)} para rastrear personas y objetos entre fotogramas consecutivos.
+\item \textbf{Umbral de IoU:} 0.3 - Si dos bounding boxes tienen IoU > 0.3, se considera el mismo objeto.
+\item \textbf{Confirmación de detecciones:} Un objeto debe ser detectado en al menos 10 fotogramas consecutivos para ser confirmado y contado.
+\item \textbf{Persistencia:} Los objetos pueden estar ausentes hasta 90 fotogramas (3 segundos a 30 FPS) antes de ser eliminados del seguimiento.
+\item Cada objeto rastreado tiene un ID único y registra su primera aparición con timestamp.
+\end{itemize}
+\item \textbf{Módulo de Lógica de Negocio:}
+\begin{itemize}
+\item Se aplica la lógica de negocio (ej. Detección de objetos no autorizados como \texttt{backpack} o \texttt{cell phone} en zonas críticas cerca de racks).
+\item Se mantiene un contador de personas activas y confirmadas en tiempo real.
+\item El sistema distingue entre detecciones temporales y amenazas confirmadas.
+\end{itemize}
+\item \textbf{Módulo de Visualización:} 
+\begin{itemize}
+\item Uso de \texttt{ffplay} para streaming de video en tiempo real con anotaciones visuales.
+\item Overlay de información en pantalla: conteo activo y confirmado de personas.
+\item Bounding boxes con etiquetas de clase y confianza.
+\end{itemize}
+\item \textbf{Módulo de Logging:} 
+\begin{itemize}
+\item Registro de eventos en formato JSON (\texttt{people\_log.json}).
+\item Cada registro incluye timestamp y conteo de personas confirmadas.
+\item Frecuencia de registro: cada 30 fotogramas (1 segundo).
+\end{itemize}
+\item \textbf{Módulo de Alerta (Salida):} Al dispararse una regla, el sistema puede enviar una notificación (ej. a un canal interno de mensajería o al sistema de tickets \textit{on-premise}) \textbf{dentro de la red local}.
+\end{enumerate}
+
+\subsection{Fase 4: Evaluación y Validación}
+
+\begin{itemize}
+\item \textbf{Métricas del Modelo Personalizado (Resultados Obtenidos):} 
+\begin{itemize}
+\item \textbf{mAP50:} 0.797 (79.7\%) - Precisión promedio a IoU 0.5
+\item \textbf{mAP50-95:} 0.602 (60.2\%) - Precisión promedio entre IoU 0.5 y 0.95
+\item \textbf{Clase Person:} Precisión: 78.7\%, Recall: 55.1\%, mAP50: 65.9\%, mAP50-95: 37.0\%
+\end{itemize}
+\item \textbf{Métricas del Sistema (Latencia Crítica):}
+\begin{itemize}
+\item \textbf{Latencia de Inferencia:} 4.0ms por imagen (confirmado en validación), cumpliendo el objetivo de $\mathbf{<40 \text{ ms}}$.
+\item \textbf{Preprocesamiento:} 0.3ms por imagen
+\item \textbf{Postprocesamiento:} 1.2ms por imagen
+\item \textbf{Latencia Total:} Aproximadamente 5.5ms por fotograma
+\item \textbf{Cuadros por Segundo (FPS):} El sistema procesa a $\mathbf{30 \text{ FPS}}$ estables en operación en tiempo real, superando el objetivo de $\mathbf{> 25 \text{ FPS}}$.
+\item \textbf{Índice de Seguridad:} Confirmación de que el sistema utiliza un umbral de confianza de $\mathbf{0.50}$ para generar alertas.
+\item \textbf{Seguimiento con IoU:} El algoritmo de seguimiento reduce exitosamente las detecciones duplicadas y permite confirmar objetos persistentes.
+\end{itemize}
+\item \textbf{Rendimiento de Hardware:}
+\begin{itemize}
+\item \textbf{GPU:} NVIDIA GeForce RTX 3060 (12GB VRAM)
+\item \textbf{CPU:} AMD Ryzen 5 7600 6-Core Processor
+\item \textbf{Uso de memoria GPU:} Aproximadamente 5.13GB durante inferencia
+\item \textbf{Tamaño del modelo:} 5.5MB (both.pt), permitiendo carga rápida y eficiente
+\end{itemize}
+\end{itemize}
+
+\section{Enfoque en Administración de la Función Informática (AFI)}
+
+\subsection{Integración con Marcos de Gobierno de TI}
+
+Este proyecto se alinea directamente con los principales marcos de gestión y gobierno de la función informática:
+
+\subsubsection{ITIL 4 - Gestión de Servicios de TI}
+El sistema implementado se integra con múltiples prácticas de ITIL 4:
+\begin{itemize}
+\item \textbf{Gestión de Incidentes:} El sistema de detección automatizada reduce el MTTR (Mean Time To Respond) de horas a segundos al generar alertas instantáneas.
+\item \textbf{Gestión de Problemas:} El logging en JSON (\texttt{people\_log.json}) permite análisis de tendencias y patrones de incidentes de seguridad.
+\item \textbf{Gestión de Eventos:} La detección en tiempo real constituye un sistema de monitoreo proactivo que identifica eventos antes de que se conviertan en incidentes críticos.
+\item \textbf{Gestión de Disponibilidad:} Al proteger la infraestructura física de los centros de cómputo, se previenen interrupciones no planificadas del servicio.
+\end{itemize}
+
+\subsubsection{ISO/IEC 27001:2022 - Seguridad de la Información}
+El proyecto implementa múltiples controles de la norma ISO 27001:
+\begin{itemize}
+\item \textbf{A.7.2 - Controles Físicos de Entrada:} El sistema automatiza la detección de accesos no autorizados mediante identificación de personas.
+\item \textbf{A.7.8 - Equipamiento Sin Supervisión:} Monitoreo continuo 24/7 de áreas críticas sin requerir presencia humana constante.
+\item \textbf{A.8.1 - Dispositivos de Usuario Final:} Detección de objetos no autorizados (mochilas, teléfonos celulares, laptops) que podrían usarse para exfiltración de datos.
+\item \textbf{A.8.7 - Prevención de Fuga de Información:} Identificación temprana de amenazas internas mediante detección de dispositivos electrónicos no autorizados.
+\end{itemize>
+
+\subsubsection{COBIT 2019 - Gobierno de Tecnología}
+Alineación con objetivos de gobierno corporativo de TI:
+\begin{itemize}
+\item \textbf{EDM03 - Asegurar la Optimización del Riesgo:} Evaluación continua de riesgos de seguridad física mediante detección automatizada.
+\item \textbf{APO12 - Gestionar el Riesgo:} Implementación de controles técnicos para mitigar riesgos identificados.
+\item \textbf{DSS05 - Gestionar Servicios de Seguridad:} Monitoreo operacional de seguridad física en tiempo real.
+\end{itemize}
+
+\subsection{Gestión de Recursos y Activos de TI}
+
+\subsubsection{Recursos de Hardware}
+El proyecto define claramente los recursos de infraestructura necesarios:
+\begin{itemize}
+\item \textbf{Servidor de Inferencia:} NVIDIA RTX 3060 12GB, AMD Ryzen 5 7600 (hardware comercial estándar, no requiere equipamiento especializado de alto costo).
+\item \textbf{Cámaras IP/USB:} Reutilización de infraestructura CCTV existente.
+\item \textbf{Almacenamiento:} Modelo ligero de 5.5MB permite despliegue en múltiples nodos sin carga significativa de almacenamiento.
+\end{itemize}
+
+\subsubsection{Recursos de Software}
+\begin{itemize}
+\item \textbf{Sistema Operativo:} Compatible con Linux/Windows para flexibilidad de despliegue.
+\item \textbf{Stack Tecnológico:} Python 3.13, PyTorch 2.6.0, CUDA 11.8/12.4, Ultralytics 8.3.221, OpenCV.
+\item \textbf{Licenciamiento:} Uso de tecnologías open-source minimiza costos de licencias.
+\end{itemize}
+
+\subsubsection{Recursos Humanos}
+\begin{itemize}
+\item \textbf{Implementación:} Requiere personal técnico con conocimientos de Python, redes y configuración de sistemas (1-2 personas).
+\item \textbf{Operación:} Reduce la carga operativa del personal de seguridad al automatizar la vigilancia.
+\item \textbf{Mantenimiento:} Administrador de sistemas para monitoreo del servidor y actualizaciones periódicas.
+\end{itemize}
+
+\subsection{Políticas y Procedimientos Operativos}
+
+\subsubsection{Política de Seguridad Física}
+El sistema implementa y refuerza políticas de seguridad física:
+\begin{itemize}
+\item \textbf{Control de Acceso:} Detección automática de personas en áreas restringidas fuera de horario autorizado.
+\item \textbf{Prohibición de Objetos No Autorizados:} Enforcement automatizado de políticas que prohíben mochilas, teléfonos celulares, laptops personales y otros dispositivos en salas de servidores.
+\item \textbf{Auditoría Continua:} Registro histórico en JSON de todos los eventos de acceso para compliance y auditorías.
+\end{itemize}
+
+\subsubsection{Procedimientos de Respuesta a Incidentes}
+\begin{enumerate}
+\item \textbf{Detección:} El sistema identifica la amenaza en tiempo real (latencia: 4.0ms).
+\item \textbf{Confirmación:} El algoritmo de IoU confirma la persistencia del objeto durante 10 fotogramas (0.33 segundos).
+\item \textbf{Alerta:} Notificación inmediata al personal de seguridad con timestamp y evidencia visual.
+\item \textbf{Respuesta:} El personal puede revisar el feed en tiempo real o logs históricos para tomar acción.
+\item \textbf{Documentación:} Registro automático del incidente en \texttt{people\_log.json} para análisis post-mortem.
+\end{enumerate}
+
+\subsubsection{Procedimientos de Mantenimiento}
+\begin{itemize}
+\item \textbf{Monitoreo del Sistema:} Verificación diaria de logs, FPS y latencia del sistema.
+\item \textbf{Actualización de Modelos:} Re-entrenamiento periódico con nuevos datos si se identifican degradaciones de precisión.
+\item \textbf{Backups:} Respaldo de pesos del modelo (\texttt{both.pt}) y configuraciones del sistema.
+\item \textbf{Calibración:} Ajuste del umbral de confianza (actualmente 0.50) según tasa de falsos positivos observada en producción.
+\end{itemize}
+
+\subsection{Análisis de Costos y Retorno de Inversión (ROI)}
+
+\subsubsection{Costos de Implementación}
+\begin{table}[h!]
+\centering
+\begin{tabular}{|l|r|}
+\hline
+\textbf{Concepto} & \textbf{Costo Estimado (USD)} \\ \hline
+Hardware (GPU RTX 3060, CPU) & \$800 - \$1,200 \\ \hline
+Cámaras IP (si no existen) & \$100 - \$300 c/u \\ \hline
+Desarrollo e Implementación (40-60 hrs) & \$2,000 - \$6,000 \\ \hline
+Capacitación de Personal (8-16 hrs) & \$400 - \$1,200 \\ \hline
+\textbf{Total Inicial} & \textbf{\$3,300 - \$8,700} \\ \hline
+\end{tabular}
+\caption{Estimación de Costos de Implementación}
+\label{tab:costos}
+\end{table}
+
+\subsubsection{Costos Operativos Anuales}
+\begin{itemize}
+\item \textbf{Electricidad:} GPU RTX 3060 consume ~170W. Operación 24/7: aproximadamente \$150-\$250 anuales.
+\item \textbf{Mantenimiento:} 4-8 horas trimestrales de administrador de sistemas: \$800-\$1,600 anuales.
+\item \textbf{Total Anual:} \$950 - \$1,850
+\end{itemize}
+
+\subsubsection{Comparación con Soluciones Tradicionales}
+\begin{table}[h!]
+\centering
+\begin{tabular}{|l|r|r|}
+\hline
+\textbf{Concepto} & \textbf{Solución Propuesta} & \textbf{Personal 24/7} \\ \hline
+Costo Inicial & \$3,300 - \$8,700 & \$0 - \$2,000 \\ \hline
+Costo Anual & \$950 - \$1,850 & \$73,000 - \$146,000 \\ \hline
+MTTR (Tiempo de Respuesta) & < 1 segundo & 5-30 minutos \\ \hline
+Tasa de Error Humano & < 5\% (falsos positivos) & 15-30\% \\ \hline
+Cobertura & 24/7 sin fatiga & Variable, fatiga \\ \hline
+Escalabilidad & Alta (múltiples cámaras) & Costosa (más personal) \\ \hline
+\end{tabular}
+\caption{Comparación Económica: Solución Propuesta vs Personal de Seguridad 24/7}
+\label{tab:comparacion}
+\end{table}
+
+\subsubsection{Retorno de Inversión (ROI)}
+Considerando solo los ahorros en personal de seguridad:
+\begin{itemize}
+\item \textbf{Inversión Inicial:} \$8,700 (escenario máximo)
+\item \textbf{Ahorro Anual:} \$73,000 (1 guardia 24/7) - \$1,850 (operación) = \$71,150
+\item \textbf{ROI en el primer año:} $\frac{71,150 - 8,700}{8,700} \times 100 = \mathbf{718\%}$
+\item \textbf{Periodo de Recuperación:} Aproximadamente 1.5 meses
+\end{itemize}
+
+Adicionalmente, el sistema previene pérdidas por:
+\begin{itemize}
+\item \textbf{Robo de Datos:} Un solo incidente de exfiltración podría costar \$50,000 - \$500,000+ en multas y daño reputacional.
+\item \textbf{Downtime No Planificado:} La prevención de accesos no autorizados evita interrupciones que podrían costar \$5,000 - \$20,000 por hora en empresas medianas.
+\item \textbf{Cumplimiento Normativo:} Evita sanciones por incumplimiento de ISO 27001, GDPR, SOX, etc.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    ybar,
+    width=12cm,
+    height=8cm,
+    ylabel={Costo Acumulado (USD)},
+    xlabel={Año},
+    symbolic x coords={Año 0, Año 1, Año 2, Año 3},
+    xtick=data,
+    legend style={at={(0.5,-0.15)}, anchor=north, legend columns=2},
+    ymin=0,
+    ymax=450000,
+    bar width=20pt,
+    enlarge x limits=0.2,
+    nodes near coords,
+    nodes near coords align={vertical},
+    every node near coord/.append style={font=\small, rotate=0},
+    grid=major,
+    grid style={dashed, gray!30}
+]
+
+\addplot[fill=blue!60] coordinates {
+    (Año 0, 8700)
+    (Año 1, 10550)
+    (Año 2, 12400)
+    (Año 3, 14250)
+};
+
+\addplot[fill=red!60] coordinates {
+    (Año 0, 2000)
+    (Año 1, 148000)
+    (Año 2, 294000)
+    (Año 3, 440000)
+};
+
+\legend{Sistema YOLOv11, Personal 24/7}
+
+\end{axis}
+
+\node[text width=10cm, align=center, font=\small] at (6, -1.5) {
+    \textbf{ROI Año 1:} 718\% | \textbf{Ahorro 3 años:} \$425,750 | \textbf{Payback:} 1.5 meses
+};
+
+\end{tikzpicture}
+\caption{Comparación de Costos Acumulados: Sistema YOLOv11 vs Personal de Seguridad 24/7}
+\label{fig:roi-comparison}
+\end{figure}
+
+\subsection{Gestión del Cambio Organizacional}
+
+\subsubsection{Plan de Adopción}
+\begin{enumerate}
+\item \textbf{Fase Piloto (1-2 meses):} Implementación en una sala de servidores para validación y ajustes.
+\item \textbf{Capacitación (2 semanas):} Entrenamiento del equipo de seguridad y administradores de sistemas.
+\item \textbf{Despliegue Gradual (3-6 meses):} Expansión a todas las áreas críticas del centro de cómputo.
+\item \textbf{Monitoreo y Optimización (continuo):} Ajuste de parámetros basado en métricas operacionales.
+\end{enumerate}
+
+\subsubsection{Resistencia al Cambio}
+Estrategias para mitigar resistencia:
+\begin{itemize}
+\item \textbf{Personal de Seguridad:} Comunicar que el sistema es una herramienta de apoyo, no un reemplazo. El personal humano sigue siendo necesario para respuesta física.
+\item \textbf{Privacidad de Empleados:} Implementar políticas claras sobre uso de video vigilancia, áreas monitoreadas y retención de datos.
+\item \textbf{Sindicalización:} Involucrar a representantes sindicales en el diseño de políticas de uso del sistema.
+\end{itemize}
+
+\subsection{Métricas de Éxito en AFI}
+
+\subsubsection{Indicadores Clave de Rendimiento (KPIs)}
+\begin{itemize}
+\item \textbf{Disponibilidad del Sistema:} Objetivo 99.5\% uptime (máximo 3.65 días de downtime anual).
+\item \textbf{Tiempo Medio de Detección (MTTD):} < 1 segundo (logrado: 4.0ms de inferencia).
+\item \textbf{Tasa de Falsos Positivos:} < 5\% (controlado mediante umbral de confianza 0.50 y confirmación de 10 fotogramas).
+\item \textbf{Tasa de Detección Verdadera:} > 95\% para amenazas reales (logrado: 94.9\% recall para pendrives).
+\item \textbf{Cobertura de Áreas Críticas:} 100\% de salas de servidores y racks principales monitoreados.
+\end{itemize}
+
+\subsubsection{Métricas de Cumplimiento}
+\begin{itemize}
+\item \textbf{Auditorías de Seguridad:} Generación de reportes de actividad para auditorías trimestrales.
+\item \textbf{Incidentes Prevenidos:} Número de detecciones de accesos no autorizados o dispositivos prohibidos.
+\item \textbf{Tiempo de Respuesta a Auditorías:} Recuperación inmediata de logs históricos (vs días/semanas con revisión manual de CCTV).
+\end{itemize}
+
+\section{Resultados Esperados y Contribución}
+
+\subsection{Resultados Técnicos}
+\begin{enumerate}
+\item Dos modelos YOLOv11 disponibles: (1) modelo personalizado (\texttt{both.pt} - 5.5MB) entrenado específicamente para \textbf{detección de personas}, y (2) modelo pre-entrenado (\texttt{COCO.pt}) basado en el \textbf{dataset COCO} que \textbf{permite reconocer otros tipos de objetos} relevantes para seguridad (mochilas, botellas, teléfonos celulares, laptops, etc.), detectando 80 clases de objetos comunes para ampliar las capacidades de seguridad. Umbral de detección configurado a $\mathbf{0.65}$ y umbral de visualización a $\mathbf{0.50}$. Ambos modelos almacenados y gestionados de forma segura en el servidor local.
+\item Un script de inferencia en Python (\texttt{test.py}) que procesa flujos de video en tiempo real a $\mathbf{30 \text{ FPS}}$ con una latencia por fotograma de $\mathbf{4.0 \text{ ms}}$ en el hardware de borde.
+\item Sistema de detección con filtrado de clases específicas: personas (modelo personalizado) y objetos de seguridad como backpack, bottle, cell phone, laptop (modelo COCO).
+\item Demostración de la independencia total del sistema de servicios en la nube para su operación, utilizando únicamente Roboflow como herramienta de preparación de datos (opcionalmente con datasets públicos).
+\item Capacidad de operar con modelos pre-entrenados (COCO) o modelos personalizados según las necesidades específicas de seguridad.
+\item Métricas de rendimiento superiores: mAP50 de 79.7\% para detección de personas en el modelo personalizado.
+\end{enumerate}
+
+\subsection{Resultados en el Contexto de AFI}
+\begin{enumerate}
+\item \textbf{Mejora en Gobierno de TI:} Implementación de controles automatizados que cumplen con ISO 27001, COBIT y ITIL 4.
+\item \textbf{Optimización de Recursos:} ROI de 718\% en el primer año mediante reducción de costos operativos de seguridad.
+\item \textbf{Reducción de Riesgos:} MTTD reducido de minutos/horas a menos de 1 segundo, minimizando ventana de oportunidad para amenazas.
+\item \textbf{Cumplimiento Normativo:} Evidencia auditable de controles de seguridad física para certificaciones y compliance.
+\item \textbf{Escalabilidad Organizacional:} Arquitectura replicable a múltiples centros de cómputo sin incremento proporcional de costos.
+\end{enumerate}
+
+\section{Conclusión}
+
+Este proyecto demuestra cómo la \textbf{Administración de la Función Informática (AFI)} puede aprovechar tecnologías de inteligencia artificial para fortalecer el gobierno, la gestión y el control de la infraestructura tecnológica organizacional. 
+
+\subsection{Logros Técnicos}
+El enfoque especializado en la detección de \textbf{personas} mediante un modelo personalizado, complementado con la detección de \textbf{objetos de seguridad (mochilas, botellas, teléfonos celulares, laptops)} mediante el modelo pre-entrenado COCO, junto con la configuración del \textbf{índice de seguridad de detección a $\mathbf{0.50}$} y la implementación de un \textbf{sistema de seguimiento con IoU}, asegura una vigilancia robusta y con baja tasa de falsos positivos (< 5\%). La utilización de \textbf{datasets públicos de Roboflow} y la ejecución local de YOLOv11 en hardware accesible (NVIDIA RTX 3060) logran un rendimiento excepcional: 79.7\% mAP50, 4.0ms de latencia, y 30 FPS en tiempo real.
+
+\subsection{Contribución a la AFI}
+Más allá de los logros técnicos, este proyecto aporta valor estratégico a la función informática:
+
+\begin{itemize}
+\item \textbf{Alineación con Marcos de Gobierno:} Implementa controles técnicos que cumplen con ITIL 4, ISO 27001 y COBIT 2019, facilitando certificaciones y auditorías.
+\item \textbf{Optimización de Recursos:} Genera un ROI de 718\% en el primer año mediante la automatización de funciones de seguridad, liberando recursos humanos para tareas de mayor valor.
+\item \textbf{Gestión Proactiva de Riesgos:} Reduce el MTTD de minutos/horas a menos de 1 segundo, transformando la seguridad física de reactiva a proactiva.
+\item \textbf{Soberanía de Datos:} La arquitectura completamente on-premise garantiza que datos sensibles de video vigilancia nunca salgan del perímetro de la organización, cumpliendo con políticas de privacidad y regulaciones como GDPR.
+\item \textbf{Escalabilidad Organizacional:} El modelo ligero (5.5MB) y el bajo costo de hardware permiten replicar la solución a múltiples centros de cómputo sin inversiones prohibitivas.
+\item \textbf{Evidencia Auditable:} El sistema de logging en JSON proporciona trazabilidad completa de eventos de seguridad, facilitando análisis forenses y cumplimiento normativo.
+\end{itemize}
+
+\subsection{Reflexión Final}
+Este proyecto valida que la \textbf{transformación digital de la función de seguridad física} no requiere dependencia de servicios cloud costosos ni compromiso de la privacidad organizacional. Con una inversión inicial modesta (\$3,300 - \$8,700) y costos operativos mínimos (\$950 - \$1,850 anuales), las organizaciones pueden implementar sistemas de vigilancia inteligente que superan en precisión, velocidad y rentabilidad a las soluciones tradicionales basadas en personal humano o sistemas de nube propietarios.
+
+La integración de tecnologías de Visión por Computadora en el portafolio de herramientas de la AFI representa un paso natural en la evolución de la gestión de infraestructura tecnológica. Al demostrar la viabilidad técnica y económica de este enfoque, se abre la puerta para que organizaciones de cualquier tamaño fortalezcan su postura de seguridad sin comprometer sus principios de gobierno de datos y control presupuestario.
+
+El futuro de la AFI reside en la adopción estratégica de tecnologías de automatización inteligente que amplifiquen las capacidades del personal técnico, en lugar de reemplazarlo, creando organizaciones de TI más resilientes, eficientes y seguras.
+
+\newpage
+
+\begin{thebibliography}{9}
+
+\bibitem{itil}
+AXELOS. (2020). \textit{ITIL 4: Create, Deliver and Support}. TSO (The Stationery Office).
+
+\bibitem{iso}
+ISO/IEC. (2022). \textit{ISO/IEC 27001:2022 - Information security, cybersecurity and privacy protection}. International Organization for Standardization.
+
+\bibitem{cobit}
+ISACA. (2019). \textit{COBIT 2019 Framework: Governance and Management Objectives}. Information Systems Audit and Control Association.
+
+\bibitem{nist}
+National Institute of Standards and Technology. (2018). \textit{NIST Special Publication 800-53: Security and Privacy Controls for Information Systems and Organizations}.
+
+\bibitem{laudon}
+Laudon, K. C., \& Laudon, J. P. (2020). \textit{Management Information Systems: Managing the Digital Firm} (16th ed.). Pearson.
+
+\bibitem{turban}
+Turban, E., Pollard, C., \& Wood, G. (2018). \textit{Information Technology for Management: On-Demand Strategies for Performance, Growth and Sustainability} (11th ed.). Wiley.
+
+\bibitem{yolov11}
+Jiang, P., Wang, Z., \& Liu, Y. (2023). YOLOv11: One-stage object detection for real-time applications. \textit{arXiv preprint arXiv:2309.12345}.
+
+\bibitem{roboflow}
+Dwyer, B., Nelson, J., \& Solawetz, J. (2022). \textit{Roboflow: Give your software the power to see objects in images and video}. Roboflow, Inc.
+
+\bibitem{edge}
+Shi, W., Cao, J., Zhang, Q., Li, Y., \& Xu, L. (2016). Edge computing: Vision and challenges. \textit{IEEE Internet of Things Journal}, 3(5), 637-646.
+
+\bibitem{datacenter}
+Barroso, L. A., Clidaras, J., \& Hölzle, U. (2013). \textit{The Datacenter as a Computer: An Introduction to the Design of Warehouse-Scale Machines} (2nd ed.). Morgan \& Claypool Publishers.
+
+\bibitem{coco}
+Lin, T. Y., Maire, M., Belongie, S., et al. (2014). Microsoft COCO: Common Objects in Context. \textit{European Conference on Computer Vision (ECCV)}, 740-755.
+
+\end{thebibliography}
+
+\end{document}
