@@ -1,0 +1,41 @@
+# Model weights (too large for git — download via scripts/download_weights.sh)
+*.pt
+*.pth
+*.onnx
+*.engine
+
+# Ultralytics training output
+runs/
+datasets/
+
+# Logs and runtime data
+*.log
+people_log.json
+people_log_*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.ipynb_checkpoints/
+
+# Secrets (NEVER commit)
+.env
+*.env
+*.pem
+*.key
+
+# LaTeX build artifacts
+*.aux
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+
+# OS cruft
+.DS_Store
+Thumbs.db
